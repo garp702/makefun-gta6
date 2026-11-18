@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bayline City — Serena Bay</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%230b2a3f'/%3E%3Ccircle cx='8' cy='8' r='5' fill='%23ffb347'/%3E%3C/svg%3E">
+<style>
+  html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#0b2a3f;font-family:'Segoe UI',Arial,sans-serif;color:#fff}
+  #scene{position:fixed;inset:0}
+  canvas{display:block}
+  .panel{background:rgba(6,18,28,.78);border:1px solid rgba(120,200,255,.35);border-radius:8px;padding:8px 10px}
+  #hud{position:fixed;inset:0;pointer-events:none;display:none}
+  #topbar{position:absolute;top:10px;left:10px;display:flex;gap:10px;align-items:flex-start}
+  #clock{font-size:20px;font-weight:700;letter-spacing:.5px}
+  #cash{font-size:20px;font-weight:700;color:#7dff9a}
+  #rep{font-size:13px;color:#ffd76a}
+  #wanted{font-size:22px;color:#ffd76a;letter-spacing:3px;text-shadow:0 0 6px #000}
+  #wanted .off{color:rgba(255,255,255,.25);text-shadow:none}
+  #banner{position:absolute;top:12px;left:50%;transform:translateX(-50%);font-size:19px;font-weight:800;letter-spacing:1px;color:#ffe9a8;text-align:center;background:rgba(6,18,28,.72);padding:7px 18px;border-radius:8px;border:1px solid rgba(255,215,106,.5)}
+  #policePanel{position:absolute;top:64px;right:10px;width:262px;font-size:12.5px;line-height:1.5}
+  #policePanel h3{margin:0 0 4px;font-size:13px;letter-spacing:2px;color:#9fd8ff}
+  #policePanel .unit b{color:#fff}
+  #policePanel .st{color:#ffd76a;font-weight:700}
+  #policePanel .air{border-top:1px solid rgba(120,200,255,.3);margin-top:5px;padding-top:5px;color:#cfeeff}
+  #minimapWrap{position:absolute;left:10px;bottom:10px;width:196px;height:196px;border-radius:10px;overflow:hidden;border:2px solid rgba(120,200,255,.4);background:#0a2436}
+  #minimap{width:196px;height:196px}
+  #speedo{position:absolute;right:14px;bottom:12px;text-align:right}
+  #speed{font-size:34px;font-weight:800}
+  #speed small{font-size:14px;color:#bfe6ff}
+  #radioLine{font-size:14px;color:#9fd8ff;font-weight:700}
+  #weaponLine{font-size:14px;color:#ffe9a8;font-weight:700}
+  #dialog{position:absolute;left:50%;bottom:118px;transform:translateX(-50%);width:520px;max-width:92vw;font-size:15px;line-height:1.45}
+  #dialog b{color:#ffd76a}
+  #prompt{position:absolute;left:50%;bottom:66px;transform:translateX(-50%);font-size:15px;font-weight:700;color:#fff;background:rgba(6,18,28,.75);padding:6px 14px;border-radius:6px;display:none}
+  #objective{position:absolute;left:222px;bottom:12px;width:300px;font-size:13px;line-height:1.45}
+  #objective b{color:#ffe9a8}
+  .screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(180deg,rgba(8,30,48,.88),rgba(4,12,20,.94));z-index:10;text-align:center}
+  .screen h1{font-size:54px;margin:0;letter-spacing:3px;color:#ffe9a8;text-shadow:0 3px 0 #b3541e}
+  .screen h2{margin:6px 0 18px;font-weight:400;color:#9fd8ff;letter-spacing:4px}
+  .screen p{max-width:560px;line-height:1.55;color:#d8ecfa;font-size:15px}
+  .btn{pointer-events:auto;cursor:pointer;background:#ffb347;color:#221303;border:0;border-radius:8px;font-size:18px;font-weight:800;padding:12px 34px;margin:6px;letter-spacing:1px}
+  .btn:hover{background:#ffc978}
+  .btn.ghost{background:transparent;color:#9fd8ff;border:1px solid #9fd8ff}
+  #pauseScreen,#shopScreen{display:none}
+  #shopScreen .card{background:rgba(8,26,40,.97);border:1px solid rgba(120,200,255,.4);border-radius:12px;padding:22px 28px;max-width:620px;pointer-events:auto}
+  #shopScreen h1{font-size:30px}
+  .shopRow{display:flex;justify-content:space-between;align-items:center;gap:18px;margin:10px 0;font-size:15px;text-align:left}
+  .shopRow .btn{font-size:14px;padding:8px 16px;margin:0}
+  #toast{position:absolute;top:110px;left:50%;transform:translateX(-50%);font-size:16px;font-weight:700;color:#7dff9a;display:none;background:rgba(6,18,28,.8);padding:6px 16px;border-radius:6px}
+</style>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three/three.module.min.js" } }
+</script>
+</head>
+<body>
+<div id="scene"></div>
+
+<div id="hud">
+  <div id="topbar">
+    <div class="panel"><div id="clock">Day 1 · 08:00</div><div id="rep">REP 0</div></div>
+    <div class="panel"><div id="cash">$250</div><div id="wanted"></div></div>
+  </div>
+  <div id="banner">JOB 1/8 — FIRST CATCH</div>
+  <div id="policePanel" class="panel">
+    <h3>SERENA BAY PD</h3>
+    <div id="policeUnits"></div>
+    <div class="air" id="airUnit">Air Unit Pelican — standby</div>
+  </div>
+  <div id="toast"></div>
+  <div id="dialog" class="panel"><b>Marisol Vega:</b> <span id="dialogText"></span></div>
+  <div id="prompt"></div>
+  <div id="minimapWrap"><canvas id="minimap" width="196" height="196"></canvas></div>
+  <div id="objective" class="panel"></div>
+  <div id="speedo">
+    <div id="radioLine">RADIO OFF</div>
+    <div id="weaponLine"></div>
+    <div id="speed">0 <small>km/h</small></div>
+  </div>
+</div>
+
+<div id="startScreen" class="screen">
+  <h1>BAYLINE CITY</h1>
+  <h2>SERENA BAY</h2>
+  <p>Three days, eight jobs, one borrowed name. Walk the boulevard, take a car,
+     outrun the Serena Bay PD and build your REP — fixer Marisol Vega is waiting.</p>
+  <p>WASD move · E enter/leave car · 1/2 weapons · click fire · R radio · B garage/shop · Esc pause</p>
+  <button class="btn" id="newGameBtn">NEW GAME</button>
+  <button class="btn ghost" id="continueBtn">CONTINUE</button>
+</div>
+
+<div id="pauseScreen" class="screen">
+  <h1>PAUSED</h1>
+  <p id="pauseStats"></p>
+  <button class="btn" id="resumeBtn">RESUME</button>
+  <button class="btn ghost" id="restartBtn">RESTART STORY</button>
+</div>
+
+<div id="shopScreen" class="screen">
+  <div class="card">
+    <h1 id="shopTitle">BAYLINE GARAGE</h1>
+    <p id="shopCash"></p>
+    <div id="shopRows"></div>
+    <button class="btn" id="shopCloseBtn">LEAVE (B)</button>
+  </div>
+</div>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
