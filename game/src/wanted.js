@@ -1,19 +1,45 @@
-// Wanted level 0–5. Crimes add heat; staying out of police sight cools it.
-// The level drives police count, aggression and the helicopter threshold.
-export class Wanted {
-  constructor() { this.level = 0; this.coolTimer = 0; }
-  add(n) { this.level = Math.max(0, Math.min(5, this.level + n)); this.coolTimer = 0; }
-  set(n) { this.level = Math.max(0, Math.min(5, Math.round(n))); this.coolTimer = 0; }
-  update(dt, seenByPolice) {
-    if (seenByPolice) { this.coolTimer = 0; return; }
-    if (this.level > 0) {
-      this.coolTimer += dt;
-      if (this.coolTimer > 14) { this.level -= 1; this.coolTimer = 0; }
-    }
+// WantedSystem: the BCPD heat model behind the five stars.
+// Crimes pour heat in; heat cools only while no police unit has eyes on the player.
+// Star thresholds turn raw heat into the 0-5 star level that dispatch responds to.
+
+export const STAR_THRESHOLDS = [0, 30, 100, 180, 280, 400];
+export const MAX_HEAT = 560;
+
+export class WantedSystem {
+  constructor() {
+    this.heat = 0;
+    this.lastCrimeAt = -Infinity;
+    this.time = 0;
   }
-  stars() {
-    let s = '';
-    for (let i = 0; i < 5; i++) s += i < this.level ? '★' : '<span class="off">★</span>';
+
+  get stars() {
+    let s = 0;
+    for (let i = 1; i < STAR_THRESHOLDS.length; i++) if (this.heat >= STAR_THRESHOLDS[i]) s = i;
     return s;
+  }
+
+  // Add heat for a crime; returns true when the star level rose because of it.
+  addHeat(amount) {
+    const before = this.stars;
+    this.heat = Math.min(MAX_HEAT, this.heat + amount);
+    this.lastCrimeAt = this.time;
+    return this.stars > before;
+  }
+
+  setStars(n) {
+    const target = [0, 55, 130, 220, 330, 460][Math.max(0, Math.min(5, n))];
+    this.heat = target;
+    this.lastCrimeAt = this.time;
+  }
+
+  clear() { this.heat = 0; }
+
+  // seen: any unit or Air One currently watching. Heat only decays unseen, and
+  // never in the first seconds after a fresh crime.
+  update(dt, seen) {
+    this.time += dt;
+    if (!seen && this.time - this.lastCrimeAt > 4) {
+      this.heat = Math.max(0, this.heat - 7.5 * dt);
+    }
   }
 }

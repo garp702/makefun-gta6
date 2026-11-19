@@ -1,33 +1,56 @@
-// Keyboard + mouse state. `pressed` is an edge set: a key lands there for
-// exactly one frame, which is what semi-automatic fire and one-shot actions
-// (enter car, cycle radio) read, so a fast tap can never fall between frames.
-export class Input {
-  constructor() {
+// InputSystem: keyboard and mouse state with pressed-edge detection.
+// The game polls `down(code)` for held keys and `pressed(code)` for single-frame taps.
+// Edges are cleared at the end of every frame by the game loop, and `clearEdges()` is
+// called when a run starts so the click on the New Game button is never read as a shot.
+
+export class InputSystem {
+  constructor(canvas) {
     this.keys = new Set();
-    this.pressed = new Set();
+    this.edges = new Set();
     this.mouseDown = false;
-    this.mousePressed = false;
-    this.yaw = 0; this.pitch = 0.22;
-    addEventListener('keydown', (e) => {
-      if (!e.repeat) this.pressed.add(e.code);
+    this.mouseEdge = false;
+    this.mouseX = 0;
+    this.mouseY = 0;
+    this.movementX = 0;
+
+    window.addEventListener('keydown', (e) => {
+      if (!e.repeat) this.edges.add(e.code);
       this.keys.add(e.code);
-      if (['ArrowUp','ArrowDown','Space'].includes(e.code)) e.preventDefault();
+      if (['ArrowUp', 'ArrowDown', 'Space'].includes(e.code)) e.preventDefault();
     });
-    addEventListener('keyup', (e) => this.keys.delete(e.code));
-    addEventListener('mousedown', (e) => { if (e.button === 0) { this.mouseDown = true; this.mousePressed = true; } });
-    addEventListener('mouseup', (e) => { if (e.button === 0) this.mouseDown = false; });
-    addEventListener('mousemove', (e) => {
-      if (document.pointerLockElement) {
-        this.yaw -= e.movementX * 0.0026;
-        this.pitch = Math.max(-0.1, Math.min(1.0, this.pitch + e.movementY * 0.0022));
-      }
+    window.addEventListener('keyup', (e) => this.keys.delete(e.code));
+    window.addEventListener('blur', () => { this.keys.clear(); this.mouseDown = false; });
+
+    canvas.addEventListener('mousedown', (e) => {
+      if (e.button === 0) { this.mouseDown = true; this.mouseEdge = true; }
     });
-    addEventListener('blur', () => { this.keys.clear(); this.mouseDown = false; });
+    window.addEventListener('mouseup', (e) => { if (e.button === 0) this.mouseDown = false; });
+    window.addEventListener('mousemove', (e) => {
+      this.mouseX = e.clientX;
+      this.mouseY = e.clientY;
+      this.movementX += e.movementX || 0;
+    });
   }
+
   down(code) { return this.keys.has(code); }
-  wasPressed(code) { return this.pressed.has(code); }
-  // Drop every pending edge + held state. Called when a run starts so the
-  // click on the NEW GAME button is never read as a gunshot or a carjack.
-  clearAll() { this.keys.clear(); this.pressed.clear(); this.mouseDown = false; this.mousePressed = false; }
-  endFrame() { this.pressed.clear(); this.mousePressed = false; }
+  pressed(code) { return this.edges.has(code); }
+
+  // WASD + arrows as one axis pair: x = right(+)/left(-), z = forward(+)/back(-).
+  axis() {
+    const x = (this.down('KeyD') || this.down('ArrowRight') ? 1 : 0) - (this.down('KeyA') || this.down('ArrowLeft') ? 1 : 0);
+    const z = (this.down('KeyW') || this.down('ArrowUp') ? 1 : 0) - (this.down('KeyS') || this.down('ArrowDown') ? 1 : 0);
+    return { x, z };
+  }
+
+  clearEdges() {
+    this.edges.clear();
+    this.mouseEdge = false;
+    this.movementX = 0;
+  }
+
+  endFrame() {
+    this.edges.clear();
+    this.mouseEdge = false;
+    this.movementX = 0;
+  }
 }

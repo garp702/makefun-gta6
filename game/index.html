@@ -1,110 +1,223 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Bayline City — Serena Bay</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%230b2a3f'/%3E%3Ccircle cx='8' cy='8' r='5' fill='%23ffb347'/%3E%3C/svg%3E">
+<title>Bayline City — Open-World Crime: BCPD Dispatch, Roadblocks &amp; Air One, Respect Ranks, Weapon Wheel, Safehouses</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230e2a38'/%3E%3Ccircle cx='16' cy='13' r='6' fill='%23f2b138'/%3E%3Crect y='22' width='32' height='4' fill='%232ea8a0'/%3E%3C/svg%3E">
 <style>
-  html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#0b2a3f;font-family:'Segoe UI',Arial,sans-serif;color:#fff}
-  #scene{position:fixed;inset:0}
-  canvas{display:block}
-  .panel{background:rgba(6,18,28,.78);border:1px solid rgba(120,200,255,.35);border-radius:8px;padding:8px 10px}
-  #hud{position:fixed;inset:0;pointer-events:none;display:none}
-  #topbar{position:absolute;top:10px;left:10px;display:flex;gap:10px;align-items:flex-start}
-  #clock{font-size:20px;font-weight:700;letter-spacing:.5px}
-  #cash{font-size:20px;font-weight:700;color:#7dff9a}
-  #rep{font-size:13px;color:#ffd76a}
-  #wanted{font-size:22px;color:#ffd76a;letter-spacing:3px;text-shadow:0 0 6px #000}
-  #wanted .off{color:rgba(255,255,255,.25);text-shadow:none}
-  #banner{position:absolute;top:12px;left:50%;transform:translateX(-50%);font-size:19px;font-weight:800;letter-spacing:1px;color:#ffe9a8;text-align:center;background:rgba(6,18,28,.72);padding:7px 18px;border-radius:8px;border:1px solid rgba(255,215,106,.5)}
-  #policePanel{position:absolute;top:64px;right:10px;width:262px;font-size:12.5px;line-height:1.5}
-  #policePanel h3{margin:0 0 4px;font-size:13px;letter-spacing:2px;color:#9fd8ff}
-  #policePanel .unit b{color:#fff}
-  #policePanel .st{color:#ffd76a;font-weight:700}
-  #policePanel .air{border-top:1px solid rgba(120,200,255,.3);margin-top:5px;padding-top:5px;color:#cfeeff}
-  #minimapWrap{position:absolute;left:10px;bottom:10px;width:196px;height:196px;border-radius:10px;overflow:hidden;border:2px solid rgba(120,200,255,.4);background:#0a2436}
-  #minimap{width:196px;height:196px}
-  #speedo{position:absolute;right:14px;bottom:12px;text-align:right}
-  #speed{font-size:34px;font-weight:800}
-  #speed small{font-size:14px;color:#bfe6ff}
-  #radioLine{font-size:14px;color:#9fd8ff;font-weight:700}
-  #weaponLine{font-size:14px;color:#ffe9a8;font-weight:700}
-  #dialog{position:absolute;left:50%;bottom:118px;transform:translateX(-50%);width:520px;max-width:92vw;font-size:15px;line-height:1.45}
-  #dialog b{color:#ffd76a}
-  #prompt{position:absolute;left:50%;bottom:66px;transform:translateX(-50%);font-size:15px;font-weight:700;color:#fff;background:rgba(6,18,28,.75);padding:6px 14px;border-radius:6px;display:none}
-  #objective{position:absolute;left:222px;bottom:12px;width:300px;font-size:13px;line-height:1.45}
-  #objective b{color:#ffe9a8}
-  .screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(180deg,rgba(8,30,48,.88),rgba(4,12,20,.94));z-index:10;text-align:center}
-  .screen h1{font-size:54px;margin:0;letter-spacing:3px;color:#ffe9a8;text-shadow:0 3px 0 #b3541e}
-  .screen h2{margin:6px 0 18px;font-weight:400;color:#9fd8ff;letter-spacing:4px}
-  .screen p{max-width:560px;line-height:1.55;color:#d8ecfa;font-size:15px}
-  .btn{pointer-events:auto;cursor:pointer;background:#ffb347;color:#221303;border:0;border-radius:8px;font-size:18px;font-weight:800;padding:12px 34px;margin:6px;letter-spacing:1px}
-  .btn:hover{background:#ffc978}
-  .btn.ghost{background:transparent;color:#9fd8ff;border:1px solid #9fd8ff}
-  #pauseScreen,#shopScreen{display:none}
-  #shopScreen .card{background:rgba(8,26,40,.97);border:1px solid rgba(120,200,255,.4);border-radius:12px;padding:22px 28px;max-width:620px;pointer-events:auto}
-  #shopScreen h1{font-size:30px}
-  .shopRow{display:flex;justify-content:space-between;align-items:center;gap:18px;margin:10px 0;font-size:15px;text-align:left}
-  .shopRow .btn{font-size:14px;padding:8px 16px;margin:0}
-  #toast{position:absolute;top:110px;left:50%;transform:translateX(-50%);font-size:16px;font-weight:700;color:#7dff9a;display:none;background:rgba(6,18,28,.8);padding:6px 16px;border-radius:6px}
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b141c; font-family: "Segoe UI", system-ui, sans-serif; color: #eef3f6; }
+  #app { position: fixed; inset: 0; }
+  #app canvas { display: block; }
+  .panel { background: rgba(10, 22, 32, .82); border: 1px solid rgba(242, 177, 56, .35); border-radius: 10px; box-shadow: 0 4px 18px rgba(0,0,0,.35); }
+  .hidden { display: none !important; }
+
+  /* ---------- title screen ---------- */
+  #title-screen { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: linear-gradient(180deg, rgba(8,18,28,.25), rgba(8,18,28,.78)); z-index: 40; }
+  #title-card { text-align: center; padding: 34px 46px; max-width: 640px; }
+  #title-card h1 { margin: 0 0 2px; font-size: 54px; letter-spacing: 6px; color: #f2b138; text-shadow: 0 3px 0 #8a5a12, 0 8px 24px rgba(0,0,0,.6); }
+  #title-card h2 { margin: 0 0 6px; font-size: 15px; font-weight: 600; letter-spacing: 3px; color: #7fd8d2; text-transform: uppercase; }
+  #title-card p.tagline { margin: 6px 0 18px; color: #cfdde6; font-size: 14px; }
+  .title-btn { display: block; width: 260px; margin: 8px auto; padding: 11px 0; font-size: 16px; font-weight: 700; letter-spacing: 2px; color: #10222f; background: #f2b138; border: 0; border-radius: 8px; cursor: pointer; }
+  .title-btn:hover { background: #ffc95e; }
+  .title-btn:disabled { background: #5b6a74; color: #aeb9c0; cursor: default; }
+  .title-btn.secondary { background: #2ea8a0; color: #06222a; }
+  #title-features { margin: 18px auto 4px; font-size: 12.5px; line-height: 1.65; color: #b9ccd8; max-width: 560px; }
+  #title-controls { margin: 10px auto 0; font-size: 12px; line-height: 1.7; color: #8fa9b8; }
+  #title-controls b { color: #e8f1f6; }
+
+  /* ---------- HUD frame ---------- */
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 20; }
+  #hud-top-left { position: absolute; top: 14px; left: 14px; padding: 9px 14px; min-width: 128px; }
+  #hud-clock { font-size: 17px; font-weight: 800; letter-spacing: 1px; }
+  #hud-district { font-size: 11px; letter-spacing: 2.5px; color: #f2b138; text-transform: uppercase; margin-top: 1px; }
+  #wanted-stars { font-size: 19px; color: #f2b138; letter-spacing: 2px; margin-top: 3px; text-shadow: 0 0 8px rgba(242,177,56,.5); }
+  #wanted-stars .off { color: rgba(255,255,255,.22); text-shadow: none; }
+
+  #hud-mission-banner { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); padding: 9px 30px; text-align: center; min-width: 320px; }
+  #mission-banner-title { font-size: 21px; font-weight: 800; letter-spacing: 2px; color: #f2b138; }
+  #mission-banner-sub { font-size: 12.5px; color: #d7e4ec; margin-top: 1px; }
+
+  #hud-mission-card { position: absolute; top: 118px; left: 14px; padding: 9px 14px; max-width: 235px; }
+  #mission-card-title { font-size: 13px; font-weight: 800; letter-spacing: 1.5px; color: #f2b138; }
+  #mission-card-text { font-size: 12.5px; color: #d7e4ec; margin-top: 2px; line-height: 1.45; }
+
+  #dispatch-panel { position: absolute; top: 14px; right: 14px; width: 308px; padding: 10px 14px; font-size: 12.5px; }
+  #dispatch-title { font-size: 12px; font-weight: 800; letter-spacing: 1.6px; color: #7fd8d2; border-bottom: 1px solid rgba(255,255,255,.14); padding-bottom: 5px; }
+  #dispatch-roster { margin-top: 6px; }
+  .roster-row { display: flex; justify-content: space-between; padding: 2.5px 0; border-bottom: 1px dotted rgba(255,255,255,.10); }
+  .roster-row .unit { color: #eef3f6; }
+  .roster-row .status { font-weight: 800; color: #f2b138; letter-spacing: .4px; white-space: nowrap; }
+  .roster-row .status.hot { color: #ff7a5c; }
+  #dispatch-log { margin-top: 7px; font-size: 11.5px; font-style: italic; color: #a9c2d2; line-height: 1.5; }
+
+  #minimap-wrap { position: absolute; left: 14px; bottom: 16px; text-align: center; }
+  #minimap { width: 192px; height: 192px; border-radius: 10px; border: 1px solid rgba(242,177,56,.35); background: rgba(10,22,32,.85); }
+  #hud-speed { font-size: 19px; font-weight: 800; margin-top: 4px; text-shadow: 0 2px 6px rgba(0,0,0,.8); }
+
+  #hud-bottom-right { position: absolute; right: 16px; bottom: 16px; text-align: right; min-width: 215px; text-shadow: 0 1px 4px rgba(0,0,0,.85), 0 0 2px rgba(0,0,0,.6); }
+  #hud-cash { font-size: 27px; font-weight: 800; color: #59d98c; text-shadow: 0 2px 8px rgba(0,0,0,.7); }
+  #hud-respect-line { font-size: 13px; font-weight: 700; letter-spacing: 1px; margin-top: 1px; }
+  #hud-rank { color: #f2b138; letter-spacing: 2px; font-size: 12px; text-transform: uppercase; }
+  .bar { height: 7px; border-radius: 4px; background: rgba(255,255,255,.16); margin: 5px 0 2px; overflow: hidden; }
+  .bar > div { height: 100%; border-radius: 4px; }
+  #respect-bar-fill { background: #2ea8a0; width: 0%; }
+  #hud-health-fill { background: #e5484d; width: 100%; }
+  #hud-armor-fill { background: #7fb3d9; width: 0%; }
+  .bar-label { font-size: 9.5px; letter-spacing: 2px; color: #b9ccd8; text-align: left; }
+  #hud-radio { font-size: 12.5px; color: #e8f1f6; margin-top: 7px; }
+  #hud-weapon { font-size: 13.5px; font-weight: 700; color: #f2b138; margin-top: 2px; }
+
+  #dialog-box { position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%); width: 520px; max-width: 60vw; padding: 11px 18px; }
+  #dialog-name { font-size: 13px; font-weight: 800; color: #f2b138; letter-spacing: .5px; }
+  #dialog-text { font-size: 14.5px; color: #eef3f6; margin-top: 2px; line-height: 1.45; }
+
+  #interact-prompt { position: absolute; left: 50%; bottom: 118px; transform: translateX(-50%); padding: 6px 16px; font-size: 13.5px; font-weight: 700; }
+  #hud-message { position: absolute; left: 50%; top: 34%; transform: translateX(-50%); padding: 8px 22px; font-size: 16px; font-weight: 700; color: #ffe1a1; text-align: center; }
+  #rank-banner { position: absolute; left: 50%; top: 24%; transform: translateX(-50%); padding: 12px 34px; text-align: center; }
+  #rank-banner .rb-top { font-size: 12px; letter-spacing: 3px; color: #7fd8d2; }
+  #rank-banner .rb-name { font-size: 30px; font-weight: 800; letter-spacing: 2px; color: #f2b138; }
+
+  #weapon-wheel { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 14px 20px; min-width: 300px; }
+  #weapon-wheel h3 { margin: 0 0 8px; font-size: 13px; letter-spacing: 2.5px; color: #7fd8d2; text-align: center; }
+  .wheel-row { display: flex; justify-content: space-between; padding: 5px 10px; border-radius: 6px; font-size: 14.5px; }
+  .wheel-row.sel { background: rgba(242,177,56,.25); color: #ffe1a1; font-weight: 700; }
+  .wheel-row.locked { color: #66788a; }
+
+  #shop-panel { position: absolute; right: 14px; top: 240px; width: 308px; padding: 11px 14px; }
+  #shop-title { font-size: 13px; font-weight: 800; letter-spacing: 1.6px; color: #f2b138; }
+  .shop-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; border-bottom: 1px dotted rgba(255,255,255,.10); }
+  .shop-row .price { color: #59d98c; font-weight: 700; }
+  .shop-row .dots { color: #f2b138; letter-spacing: 2px; }
+  #shop-hint { font-size: 11px; color: #8fa9b8; margin-top: 6px; }
+
+  .fullscreen-note { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(5,10,16,.72); z-index: 30; }
+  .fullscreen-note .panel { padding: 30px 48px; text-align: center; pointer-events: auto; }
+  .fullscreen-note h2 { margin: 0 0 6px; font-size: 38px; letter-spacing: 5px; color: #f2b138; }
+  .fullscreen-note p { color: #cfdde6; font-size: 14px; margin: 4px 0 14px; }
+  #busted-screen h2 { color: #ff7a5c; }
 </style>
+</head>
+<body>
+<div id="app"></div>
+
+<!-- ======================= TITLE SCREEN ======================= -->
+<div id="title-screen">
+  <div id="title-card" class="panel">
+    <h1>BAYLINE CITY</h1>
+    <h2>Serena Bay &middot; Open-World Crime</h2>
+    <p class="tagline">Ten story jobs. One police department with your name on the board.<br>
+    Run freight for Marisol Vega, dodge BCPD roadblocks, outfly Air One, and earn the street's respect.</p>
+    <button id="btn-new-game" class="title-btn">NEW GAME</button>
+    <button id="btn-continue" class="title-btn secondary" disabled>CONTINUE</button>
+    <div id="title-features">
+      BCPD DISPATCH &amp; ROADBLOCKS &middot; AIR ONE HELICOPTER &middot; 5-STAR WANTED<br>
+      RESPECT RANKS &middot; WEAPON WHEEL &middot; TRAFFIC &amp; CARJACKING &middot; 3 SAFEHOUSES<br>
+      GARAGE UPGRADES &middot; CAR RADIO &middot; SAVES
+    </div>
+    <div id="title-controls">
+      <b>WASD</b> move/drive &middot; <b>Shift</b> sprint/boost &middot; <b>E</b> enter car / safehouse<br>
+      <b>Mouse</b> aim, <b>click</b> shoot &middot; <b>1–5</b> weapons &middot; <b>Q</b> weapon wheel &middot; <b>R</b> radio &middot; <b>Esc</b> pause
+    </div>
+  </div>
+</div>
+
+<!-- ======================= HUD ======================= -->
+<div id="hud" class="hidden">
+  <div id="hud-top-left" class="panel">
+    <div id="hud-clock">DAY 1 &middot; 17:48</div>
+    <div id="hud-district">Palm Boulevard</div>
+    <div id="wanted-stars"></div>
+  </div>
+
+  <div id="hud-mission-banner" class="panel">
+    <div id="mission-banner-title">JOB 1/10 — FIRST CATCH</div>
+    <div id="mission-banner-sub">Pick up the cooler at the Marina</div>
+  </div>
+
+  <div id="hud-mission-card" class="panel">
+    <div id="mission-card-title">JOB 1/10 — FIRST CATCH</div>
+    <div id="mission-card-text">Pick up the cooler at the Marina</div>
+  </div>
+
+  <div id="dispatch-panel" class="panel">
+    <div id="dispatch-title">BCPD DISPATCH — Sgt. Elena Brooks</div>
+    <div id="dispatch-roster"></div>
+    <div id="dispatch-log"></div>
+  </div>
+
+  <div id="minimap-wrap">
+    <canvas id="minimap" width="192" height="192"></canvas>
+    <div id="hud-speed">0 km/h</div>
+  </div>
+
+  <div id="hud-bottom-right">
+    <div id="hud-cash">$250</div>
+    <div id="hud-respect-line">RESPECT 0</div>
+    <div id="hud-rank">Nobody</div>
+    <div class="bar"><div id="respect-bar-fill"></div></div>
+    <div class="bar-label">HEALTH</div>
+    <div class="bar"><div id="hud-health-fill"></div></div>
+    <div class="bar-label">ARMOR</div>
+    <div class="bar"><div id="hud-armor-fill"></div></div>
+    <div id="hud-radio">&#9836; —</div>
+    <div id="hud-weapon">Fists</div>
+  </div>
+
+  <div id="dialog-box" class="panel hidden">
+    <div id="dialog-name">Marisol Vega</div>
+    <div id="dialog-text"></div>
+  </div>
+
+  <div id="interact-prompt" class="panel hidden">[E] Enter vehicle</div>
+  <div id="hud-message" class="panel hidden"></div>
+
+  <div id="rank-banner" class="panel hidden">
+    <div class="rb-top">RESPECT RANK UP</div>
+    <div class="rb-name">RUNNER</div>
+  </div>
+
+  <div id="weapon-wheel" class="panel hidden">
+    <h3>WEAPON WHEEL</h3>
+    <div id="wheel-list"></div>
+  </div>
+
+  <div id="shop-panel" class="panel hidden">
+    <div id="shop-title">BAYLINE GARAGE — UPGRADES</div>
+    <div id="shop-list"></div>
+    <div id="shop-hint">Keys 1–3 or click. Repairs are free with any fitting.</div>
+  </div>
+</div>
+
+<!-- ======================= PAUSE / END SCREENS ======================= -->
+<div id="pause-menu" class="fullscreen-note hidden">
+  <div class="panel">
+    <h2>PAUSED</h2>
+    <p>Bayline City waits for no one — except you, right now.</p>
+    <button id="btn-resume" class="title-btn">RESUME</button>
+    <button id="btn-restart" class="title-btn secondary">RESTART RUN</button>
+  </div>
+</div>
+
+<div id="busted-screen" class="fullscreen-note hidden">
+  <div class="panel">
+    <h2>BUSTED</h2>
+    <p id="busted-text">BCPD took you in. The fine stings; the respect survives.</p>
+    <button id="btn-busted-ok" class="title-btn">WALK OUT</button>
+  </div>
+</div>
+
+<div id="wasted-screen" class="fullscreen-note hidden">
+  <div class="panel">
+    <h2>WASTED</h2>
+    <p id="wasted-text">Serena Bay General patched you up and billed you $150.</p>
+    <button id="btn-wasted-ok" class="title-btn">DISCHARGE ME</button>
+  </div>
+</div>
+
 <script type="importmap">
 { "imports": { "three": "./vendor/three/three.module.min.js" } }
 </script>
-</head>
-<body>
-<div id="scene"></div>
-
-<div id="hud">
-  <div id="topbar">
-    <div class="panel"><div id="clock">Day 1 · 08:00</div><div id="rep">REP 0</div></div>
-    <div class="panel"><div id="cash">$250</div><div id="wanted"></div></div>
-  </div>
-  <div id="banner">JOB 1/8 — FIRST CATCH</div>
-  <div id="policePanel" class="panel">
-    <h3>SERENA BAY PD</h3>
-    <div id="policeUnits"></div>
-    <div class="air" id="airUnit">Air Unit Pelican — standby</div>
-  </div>
-  <div id="toast"></div>
-  <div id="dialog" class="panel"><b>Marisol Vega:</b> <span id="dialogText"></span></div>
-  <div id="prompt"></div>
-  <div id="minimapWrap"><canvas id="minimap" width="196" height="196"></canvas></div>
-  <div id="objective" class="panel"></div>
-  <div id="speedo">
-    <div id="radioLine">RADIO OFF</div>
-    <div id="weaponLine"></div>
-    <div id="speed">0 <small>km/h</small></div>
-  </div>
-</div>
-
-<div id="startScreen" class="screen">
-  <h1>BAYLINE CITY</h1>
-  <h2>SERENA BAY</h2>
-  <p>Three days, eight jobs, one borrowed name. Walk the boulevard, take a car,
-     outrun the Serena Bay PD and build your REP — fixer Marisol Vega is waiting.</p>
-  <p>WASD move · E enter/leave car · 1/2 weapons · click fire · R radio · B garage/shop · Esc pause</p>
-  <button class="btn" id="newGameBtn">NEW GAME</button>
-  <button class="btn ghost" id="continueBtn">CONTINUE</button>
-</div>
-
-<div id="pauseScreen" class="screen">
-  <h1>PAUSED</h1>
-  <p id="pauseStats"></p>
-  <button class="btn" id="resumeBtn">RESUME</button>
-  <button class="btn ghost" id="restartBtn">RESTART STORY</button>
-</div>
-
-<div id="shopScreen" class="screen">
-  <div class="card">
-    <h1 id="shopTitle">BAYLINE GARAGE</h1>
-    <p id="shopCash"></p>
-    <div id="shopRows"></div>
-    <button class="btn" id="shopCloseBtn">LEAVE (B)</button>
-  </div>
-</div>
-
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>

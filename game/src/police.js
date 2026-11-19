@@ -1,80 +1,133 @@
-// Serena Bay PD ground units: three named officers in marked cars.
-// Each unit reports a live status — PURSUING when close and closing,
-// EN ROUTE while driving to the player, SEARCHING when the trail is cold.
+// PoliceSystem: the BCPD's ground response. Cruiser units spawn on the streets
+// around the player in the numbers dispatch authorizes, hunt to the player's last
+// known position, and ram, box-in and — at four stars — shoot. A unit whose car is
+// wrecked is out of the chase; a unit left far behind is rotated back in fresh.
+
+import * as THREE from 'three';
 import { Vehicle } from './vehicles.js';
+import { GROUND_OFFICERS } from './dispatch.js';
+import { STREETS, nearestStreet } from './city.js';
 
-export const OFFICERS = [
-  { name: 'Ofc. Dana Reyes', unit: 'Unit 7' },
-  { name: 'Ofc. Marcus Vale', unit: 'Unit 12' },
-  { name: 'Sgt. Priya Nair', unit: 'Unit 3' },
-];
+export class PoliceUnit {
+  constructor(scene, officer, x, z) {
+    this.officer = officer;
+    this.vehicle = new Vehicle('cruiser', 0xf4f6f7, x, z, Math.PI);
+    this.vehicle.driver = 'police';
+    scene.add(this.vehicle.mesh);
+    this.status = 'EN ROUTE';
+    this.lastKnown = new THREE.Vector3(x, 0, z);
+    this.lastSeenAt = -Infinity;
+    this.shootTimer = 1 + Math.random();
+    this.flashPhase = Math.random() * 2;
+  }
+  get disabled() { return this.vehicle.disabled; }
+  get pos() { return this.vehicle.pos; }
+}
 
-export class Police {
+export class PoliceSystem {
   constructor(scene) {
-    this.units = OFFICERS.map((o, i) => {
-      const v = new Vehicle(scene, -140 + i * 30, -140, 0, 0xf5f6fa, 'police');
-      v.topSpeed = 36; v.accel = 15;
-      v.mesh.visible = false;
-      return { ...o, vehicle: v, status: 'EN ROUTE', active: false, searchAngle: i * 2.1 };
-    });
+    this.scene = scene;
+    this.units = [];
+    this.officerCursor = 0;
+    this.time = 0;
   }
-  activeCount(wanted) { return wanted >= 3 ? 3 : wanted >= 1 ? wanted : 0; }
-  update(dt, wanted, targetPos, t) {
-    const n = this.activeCount(wanted);
-    let anySee = false;
-    this.units.forEach((u, i) => {
-      u.active = i < n && wanted > 0;
-      const v = u.vehicle;
-      v.mesh.visible = u.active;
-      if (!u.active) { u.status = 'STANDBY'; return; }
-      const d = v.pos.distanceTo(targetPos);
-      if (d < 60) anySee = true;
-      let dest = targetPos, cruise = 30;
-      if (wanted === 1 && d > 55) { u.status = 'SEARCHING'; dest = null; }
-      else u.status = d < 26 ? 'PURSUING' : 'EN ROUTE';
-      if (dest) {
-        // Steer toward a point slightly behind the target, per-unit offset.
-        const back = 5 + i * 3;
-        const tx = dest.x - Math.sin(Math.atan2(dest.x - v.pos.x, dest.z - v.pos.z)) * 0 + (i - 1) * 4;
-        const tz = dest.z - back;
-        const ang = Math.atan2(tx - v.pos.x, tz - v.pos.z);
-        let diff = ang - v.heading;
-        while (diff > Math.PI) diff -= Math.PI * 2;
-        while (diff < -Math.PI) diff += Math.PI * 2;
-        const steer = Math.max(-1, Math.min(1, diff * 1.6));
-        const throttle = Math.abs(diff) > 2.2 ? -0.6 : 1;
-        v.update(dt, throttle, steer);
-        if (v.speed > cruise) v.speed = cruise;
-      } else {
-        u.searchAngle += dt * 0.25;
-        const cx = targetPos.x + Math.cos(u.searchAngle + i * 2) * 34;
-        const cz = targetPos.z + Math.sin(u.searchAngle + i * 2) * 34;
-        const ang = Math.atan2(cx - v.pos.x, cz - v.pos.z);
-        let diff = ang - v.heading;
-        while (diff > Math.PI) diff -= Math.PI * 2;
-        while (diff < -Math.PI) diff += Math.PI * 2;
-        v.update(dt, 0.7, Math.max(-1, Math.min(1, diff * 1.6)));
-        if (v.speed > 14) v.speed = 14;
-      }
-      const bar = v.mesh.userData.lightBar;
-      if (bar) bar.material.emissiveIntensity = (Math.sin(t * 9 + i * 2) > 0) ? 1.8 : 0.15;
-      u.distance = Math.round(d);
-    });
-    return anySee;
+
+  spawnUnitAt(x, z, officerIdx) {
+    const officer = GROUND_OFFICERS[officerIdx % GROUND_OFFICERS.length];
+    const unit = new PoliceUnit(this.scene, officer, x, z);
+    this.units.push(unit);
+    return unit;
   }
-  spawnNear(pos) {
-    for (const u of this.units) {
-      if (u.vehicle.pos.distanceTo(pos) > 70) {
-        u.vehicle.pos.set(pos.x + (Math.random() - 0.5) * 60, 0, pos.z - 46);
-        u.vehicle.speed = 0;
-      }
+
+  spawnNear(playerPos) {
+    // Pick a street point 65-85m out, on a road, in a random direction.
+    for (let tries = 0; tries < 8; tries++) {
+      const a = Math.random() * Math.PI * 2;
+      const d = 65 + Math.random() * 20;
+      const x = playerPos.x + Math.sin(a) * d;
+      const z = playerPos.z + Math.cos(a) * d;
+      if (x < -180 || x > 200 || z < -185 || z > 185) continue;
+      const onX = Math.abs(x - nearestStreet(x)) < 6.5;
+      const onZ = Math.abs(z - nearestStreet(z)) < 6.5;
+      if (!onX && !onZ) continue;
+      return this.spawnUnitAt(onX ? nearestStreet(x) : x, onZ ? nearestStreet(z) : z, this.officerCursor++);
+    }
+    return this.spawnUnitAt(nearestStreet(playerPos.x), playerPos.z + 70, this.officerCursor++);
+  }
+
+  removeUnit(unit) {
+    this.scene.remove(unit.vehicle.mesh);
+    this.units.splice(this.units.indexOf(unit), 1);
+  }
+
+  // Keep the on-street count at what dispatch authorized for the star level.
+  maintain(game) {
+    const want = game.dispatch.responseFor(game.wanted.stars).units;
+    const active = this.units.filter((u) => !u.disabled);
+    if (active.length < want) this.spawnNear(game.playerPos());
+    for (const u of [...this.units]) {
+      if (u.pos.distanceTo(game.playerPos()) > 175) this.removeUnit(u);
+    }
+    while (this.units.filter((u) => !u.disabled).length > want && this.units.length) {
+      // Extras peel off: remove the farthest healthy unit when stars fall.
+      const healthy = this.units.filter((u) => !u.disabled);
+      if (!healthy.length) break;
+      healthy.sort((a, b) => b.pos.distanceTo(game.playerPos()) - a.pos.distanceTo(game.playerPos()));
+      this.removeUnit(healthy[0]);
     }
   }
-  panelLines() {
-    return this.units.map((u) => ({
-      name: `${u.name} — ${u.unit}`,
-      status: u.active ? u.status : 'STANDBY',
-      distance: u.active ? u.distance ?? 0 : null,
-    }));
+
+  update(dt, game) {
+    this.time += dt;
+    const playerPos = game.playerPos();
+    const response = game.dispatch.responseFor(game.wanted.stars);
+    for (const unit of this.units) {
+      const car = unit.vehicle;
+      // Lightbar strobes.
+      const bar = car.mesh.userData.lightbar;
+      if (bar) {
+        const phase = Math.sin(this.time * 9 + unit.flashPhase * 4) > 0;
+        bar.children[1].visible = phase;
+        bar.children[2].visible = !phase;
+      }
+      if (unit.disabled) { unit.status = 'DISABLED'; car.speed = 0; continue; }
+
+      const dist = car.pos.distanceTo(playerPos);
+      const seen = dist < 78;
+      if (seen) {
+        unit.lastKnown.copy(playerPos);
+        unit.lastSeenAt = this.time;
+        game.notePlayerSeen();
+      }
+      unit.status = dist >= 70 ? 'EN ROUTE' : (this.time - unit.lastSeenAt > 4 ? 'SEARCHING' : 'PURSUING');
+
+      // Drive at the player (or the last place they were seen).
+      const target = seen ? playerPos : unit.lastKnown;
+      const toT = new THREE.Vector3().subVectors(target, car.pos); toT.y = 0;
+      const wantHeading = Math.atan2(toT.x, toT.z);
+      let dh = wantHeading - car.heading;
+      while (dh > Math.PI) dh -= Math.PI * 2;
+      while (dh < -Math.PI) dh += Math.PI * 2;
+      const steer = THREE.MathUtils.clamp(dh * 1.7, -1, 1);
+      let throttle = 1;
+      if (dist < 7 && !game.player.inVehicle) throttle = dist < 4 ? -0.2 : 0.15; // creep up on a runner
+      if (dist < 3.2) throttle = -0.5; // don't run the suspect down
+      car.update(dt, throttle, steer, null, false);
+      // Cruisers get a quiet catch-up surge when the chase strings out.
+      if (dist > 55 && dist < 120) {
+        const f = car.forward();
+        car.pos.x += f.x * 6.5 * dt;
+        car.pos.z += f.z * 6.5 * dt;
+      }
+
+      // Armed response at four stars and up.
+      if (response.armed && seen && dist < 37) {
+        unit.shootTimer -= dt;
+        if (unit.shootTimer <= 0) {
+          unit.shootTimer = 1.05 + Math.random() * 0.55;
+          game.combat.policeShoot(unit);
+        }
+      }
+    }
   }
 }

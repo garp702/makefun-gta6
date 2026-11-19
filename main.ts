@@ -1,10 +1,12 @@
-// Bayline City — make.fun entrypoint, written for this entry.
-// The game itself is the static folder beside this file (game/index.html plus
-// its ES modules and the vendored three.js build). This program's only job is
-// plumbing: copy game/ and screenshots/ into the output directory and write
-// dossier.json there with the vendored make.fun library, using exactly the
-// scorer caps for this bounty. Everything below runs synchronously, top to
-// bottom, with no network, no child processes and no randomness.
+// Bayline City — hand-in program for the make.fun gta6-01 bounty (Node 22, standard library only).
+//
+// The entry itself is the game/ folder: plain static files (an index.html, its ES modules and a
+// vendored three.js build) that a desktop browser loads fully offline, with no build step and no
+// network request. This program's whole job is the hand-in: copy game/ and screenshots/ from
+// beside this file into the output directory and write /output/dossier.json, the summary the
+// judge reads, using the vendored make.fun library. Outside the grader's container,
+// MAKEFUN_OUTPUT_DIR stands in for /output:
+//   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
 
 import { cpSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -17,10 +19,10 @@ const out = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
 mkdirSync(out, { recursive: true });
 cpSync(join(here, 'game'), join(out, 'game'), { recursive: true });
 mkdirSync(join(out, 'screenshots'), { recursive: true });
-if (existsSync(join(here, 'screenshots'))) {
-  cpSync(join(here, 'screenshots'), join(out, 'screenshots'), { recursive: true });
-}
+if (existsSync(join(here, 'screenshots'))) cpSync(join(here, 'screenshots'), join(out, 'screenshots'), { recursive: true });
 
+// The caps below are the scorer's own: at most 4 screenshots of 256 KiB each, at most 993 files
+// and 48 MiB in game/, no game/ path over 1000 bytes, and the dossier text capped at 160 KiB.
 writeFileSync(
   join(out, 'dossier.json'),
   buildDossier(out, {
@@ -32,9 +34,9 @@ writeFileSync(
   }),
 );
 
-// Read-only verification pass, after the dossier is on disk: walk the two
-// copied trees and report a single summary line so a human running this by
-// hand can see at a glance what was handed in. Nothing here writes anywhere.
+// Read-only verification pass: walk back over what was just handed in and count it, so the run
+// log proves the output is complete (game files under game/, shots under screenshots/, and the
+// dossier itself). This only reads the output directory; it writes nothing more.
 function countFiles(dir: string): number {
   let total = 0;
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -42,7 +44,6 @@ function countFiles(dir: string): number {
   }
   return total;
 }
-
-const gameFiles = countFiles(join(out, 'game'));
-const shotFiles = countFiles(join(out, 'screenshots'));
-console.log(`Bayline City: handed in ${gameFiles} game files and ${shotFiles} screenshots.`);
+const gameFileCount = countFiles(join(out, 'game'));
+const screenshotCount = readdirSync(join(out, 'screenshots')).length;
+console.log(`bayline-city-r6 hand-in: ${gameFileCount} game files, ${screenshotCount} screenshots, dossier written`);
